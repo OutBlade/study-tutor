@@ -1,0 +1,20 @@
+{
+  "name": "study-tutor",
+  "version": "0.1.0",
+  "description": "Universeller HM/ETIT Lern-Tutor mit Claude API",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron ."
+  },
+  "author": "Sebastian Kallfelz",
+  "license": "MIT",
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.39.0",
+    "katex": "^0.17.0",
+    "marked": "^18.0.4",
+    "pdfjs-dist": "^4.7.76"
+  },
+  "devDependencies": {
+    "electron": "^33.0.0"
+  }
+}

@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <title>Study Tutor SS2026</title>
+  <link rel="stylesheet" href="../node_modules/katex/dist/katex.min.css" />
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <header id="topbar">
+    <div class="brand" id="brand">Study<span>Tutor</span></div>
+    <div class="crumbs" id="crumbs"></div>
+    <div class="spacer"></div>
+    <button class="ghost" id="settings-btn">Einstellungen</button>
+  </header>
+
+  <!-- HOME SCREEN -->
+  <main id="screen-home" class="screen">
+    <div class="screen-header">
+      <h1>Pruefungen SS2026</h1>
+      <p class="hint" id="home-hint"></p>
+    </div>
+    <div id="tiles" class="tiles"></div>
+  </main>
+
+  <!-- MODULE SCREEN -->
+  <main id="screen-module" class="screen hidden">
+    <div class="module-layout">
+
+      <!-- Sidebar -->
+      <aside class="sidebar">
+        <div class="sidebar-section-label">Materialien</div>
+
+        <div id="materials-list" class="materials-list"></div>
+
+        <div id="drop-zone" class="drop-zone">
+          PDFs hier ablegen
+        </div>
+
+        <button class="primary" id="add-pdf" style="width:100%">PDF hinzufuegen</button>
+
+        <hr class="sidebar-divider" />
+
+        <div class="sidebar-actions">
+          <button class="ghost" id="quiz-btn">5 Pruefungs-Fragen generieren</button>
+          <button class="ghost" id="clear-history">Verlauf loeschen</button>
+        </div>
+
+        <div class="usage-box" id="usage-info" style="display:none"></div>
+      </aside>
+
+      <!-- Chat -->
+      <section class="chat">
+        <div id="chat-log" class="chat-log">
+          <div class="chat-empty" id="chat-empty">
+            <div class="empty-icon">&#128218;</div>
+            <div class="empty-title">Bereit zum Lernen</div>
+            <div class="empty-sub">Stelle eine Frage, lade ein PDF hoch oder generiere Pruefungs-Fragen aus deinen Materialien.</div>
+          </div>
+        </div>
+
+        <div class="composer">
+          <div id="image-preview-bar" class="image-preview-bar hidden">
+            <img id="preview-img" src="" alt="" />
+            <span class="preview-label">Bild angehaengt</span>
+            <button class="remove-btn" id="preview-remove" title="Bild entfernen">&times;</button>
+          </div>
+
+          <textarea
+            id="input"
+            rows="3"
+            placeholder="Frage stellen... (Enter senden, Shift+Enter neue Zeile, Strg+V Bild einfuegen)"
+          ></textarea>
+
+          <div class="composer-row">
+            <div class="left">
+              <button class="ghost" id="attach-image" title="Bild anhaengen">Bild</button>
+            </div>
+            <span class="composer-hint">
+              <kbd>Enter</kbd> Senden &nbsp; <kbd>Shift+Enter</kbd> Neue Zeile
+            </span>
+            <div class="right">
+              <button class="primary" id="send">Senden</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+    </div>
+  </main>
+
+  <!-- SETTINGS MODAL -->
+  <div id="settings-modal" class="modal hidden">
+    <div class="modal-box">
+      <h2>Einstellungen</h2>
+      <div class="field">
+        <label for="api-key-input">Anthropic API Key</label>
+        <input id="api-key-input" type="password" placeholder="sk-ant-..." autocomplete="off" />
+        <p class="modal-hint">Wird verschluesselt gespeichert (Windows DPAPI via Electron safeStorage).</p>
+      </div>
+      <div class="modal-footer">
+        <button class="ghost" id="settings-cancel">Abbrechen</button>
+        <button class="primary" id="settings-save">Speichern</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="../node_modules/marked/lib/marked.umd.js"></script>
+  <script src="../node_modules/katex/dist/katex.min.js"></script>
+  <script src="./app.js"></script>
+</body>
+</html>
