@@ -159,6 +159,9 @@
    ============================================================ */
 *, *::before, *::after { box-sizing: border-box; }
 
+/* Beats any specificity — ID selectors on screens cannot override this */
+.hidden { display: none !important; }
+
 ::selection {
   background: var(--orange-a15);
   color: var(--text-primary);
@@ -431,6 +434,7 @@ button:disabled {
 .module-layout {
   display: grid;
   grid-template-columns: 264px 1fr;
+  grid-template-rows: 1fr;
   gap: var(--sp-3);
   flex: 1;
   min-height: 0;
@@ -449,6 +453,7 @@ button:disabled {
   gap: var(--sp-2);
   overflow: hidden;
   min-height: 0;
+  min-width: 0;
 }
 
 .sidebar-section-label {
@@ -603,6 +608,7 @@ button:disabled {
   flex-direction: column;
   overflow: hidden;
   min-height: 0;
+  min-width: 0;
 }
 
 .chat-log {
