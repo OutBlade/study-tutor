@@ -4,10 +4,37 @@
   "description": "Universeller HM/ETIT Lern-Tutor mit Claude API",
   "main": "main.js",
   "scripts": {
-    "start": "electron ."
+    "start": "electron .",
+    "dist": "electron-builder --win --publish never"
   },
   "author": "Sebastian Kallfelz",
   "license": "MIT",
+  "build": {
+    "appId": "de.kit.etit.study-tutor",
+    "productName": "Study Tutor SS2026",
+    "copyright": "MIT — Sebastian Kallfelz",
+    "asar": true,
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "renderer/**/*",
+      "package.json"
+    ],
+    "win": {
+      "target": [{ "target": "nsis", "arch": ["x64"] }]
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "deleteAppDataOnUninstall": false,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
+    }
+  },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.39.0",
     "katex": "^0.17.0",
@@ -15,6 +42,7 @@
     "pdfjs-dist": "^4.7.76"
   },
   "devDependencies": {
-    "electron": "^33.0.0"
+    "electron": "^33.0.0",
+    "electron-builder": "^26.8.1"
   }
 }
