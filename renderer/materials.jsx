@@ -146,26 +146,39 @@ function MaterialsPanel({ moduleId, module: mod }) {
   );
 }
 
+const KIT_MODELS = [
+  { id: 'azure.gpt-4.1', label: 'GPT-4.1 (Empfohlen)' },
+  { id: 'azure.gpt-5', label: 'GPT-5' },
+  { id: 'azure.gpt-4.1-mini', label: 'GPT-4.1 Mini (Schnell)' },
+  { id: 'azure.o4-mini', label: 'o4-mini (Reasoning)' },
+  { id: 'kit.qwen3.5-397b-A17b', label: 'Qwen 3.5 397B (Lokal)' },
+];
+
 // Settings modal (IPC-wired)
 function SettingsModal({ onClose, onSaved }) {
   const [key, setKey] = useStateM('');
+  const [baseURL, setBaseURL] = useStateM('https://ki-toolbox.scc.kit.edu/api/v1');
+  const [model, setModel] = useStateM('azure.gpt-4.1');
   const [saving, setSaving] = useStateM(false);
+  const MASK = '••••••••••••';
 
   useEffectM(() => {
     window.api.getSettings().then(s => {
-      if (s.hasKey) setKey('sk-ant-···');
+      if (s.hasKey) setKey(MASK);
+      if (s.baseURL) setBaseURL(s.baseURL);
+      if (s.model) setModel(s.model);
     });
   }, []);
 
   const handleSave = async () => {
     if (saving) return;
+    setSaving(true);
+    const payload = { baseURL, model };
     const trimmed = key.trim();
-    if (trimmed && !trimmed.startsWith('sk-ant-···')) {
-      setSaving(true);
-      await window.api.setApiKey(trimmed);
-      onSaved && onSaved(true);
-      setSaving(false);
-    }
+    if (trimmed && trimmed !== MASK) payload.apiKey = trimmed;
+    await window.api.setApiKey(payload);
+    onSaved && onSaved(true);
+    setSaving(false);
     onClose();
   };
 
@@ -174,40 +187,48 @@ function SettingsModal({ onClose, onSaved }) {
       <div className="modal" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <div>
-            <span className="eyebrow">Einstellungen</span>
-            <h2>API Key</h2>
+            <span className="eyebrow">KIT KI-Toolbox</span>
+            <h2>Einstellungen</h2>
           </div>
           <button className="modal-close" onClick={onClose}><IconX /></button>
         </div>
         <div className="modal-body">
-          <p>
-            Dein Anthropic API Key wird mit Windows DPAPI über Electron{' '}
-            <code style={{ fontFamily: 'var(--font-mono)', fontSize: 11, background: 'var(--bg-2)', padding: '1px 4px' }}>
-              safeStorage
-            </code>{' '}
-            verschlüsselt und niemals im Klartext gespeichert.
-          </p>
-          <label className="label">Anthropic API Key</label>
+          <label className="label">API Key</label>
           <input
             className="input"
             type="password"
             value={key}
-            placeholder="sk-ant-api03-…"
+            placeholder="sk-…"
             onChange={(e) => setKey(e.target.value)}
             autoComplete="off"
-            onFocus={(e) => { if (e.target.value === 'sk-ant-···') setKey(''); }}
+            onFocus={(e) => { if (e.target.value === MASK) setKey(''); }}
           />
-          <p className="muted" style={{ marginTop: 10 }}>
-            Verschlüsselt mit DPAPI · Verlässt dein Gerät nicht · Wird nur an api.anthropic.com gesendet
+          <p className="muted" style={{ marginTop: 8 }}>
+            API Key wird mit Windows DPAPI verschlüsselt gespeichert.
           </p>
+
           <label className="label">Modell</label>
-          <div style={{ display: 'flex', gap: 6 }}>
-            <button className="btn" style={{ borderColor: 'var(--accent)', color: 'var(--fg-0)' }}>
-              Sonnet 4.6
-            </button>
-            <button className="btn" style={{ color: 'var(--fg-3)' }}>Opus 4.7</button>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+            {KIT_MODELS.map(m => (
+              <button
+                key={m.id}
+                className="btn"
+                onClick={() => setModel(m.id)}
+                style={model === m.id ? { borderColor: 'var(--accent)', color: 'var(--fg-0)', background: 'var(--bg-3)' } : { color: 'var(--fg-2)' }}
+              >
+                {model === m.id && '▸ '}{m.label}
+              </button>
+            ))}
           </div>
-          <p className="muted" style={{ marginTop: 8 }}>Sonnet 4.6 ist optimal für tägliches Lernen (Kosten/Qualität).</p>
+
+          <label className="label">Base URL</label>
+          <input
+            className="input"
+            type="text"
+            value={baseURL}
+            onChange={(e) => setBaseURL(e.target.value)}
+            style={{ fontFamily: 'var(--font-mono)', fontSize: 11 }}
+          />
         </div>
         <div className="modal-footer">
           <button className="btn btn-ghost" onClick={onClose}>Abbrechen</button>

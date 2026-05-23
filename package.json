@@ -25,7 +25,14 @@
       "package.json"
     ],
     "win": {
-      "target": [{ "target": "nsis", "arch": ["x64"] }]
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
     },
     "nsis": {
       "oneClick": true,
@@ -39,6 +46,7 @@
     "@anthropic-ai/sdk": "^0.39.0",
     "katex": "^0.17.0",
     "marked": "^18.0.4",
+    "openai": "^6.39.0",
     "pdfjs-dist": "^4.7.76"
   },
   "devDependencies": {

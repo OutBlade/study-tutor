@@ -2,7 +2,7 @@ const { app, BrowserWindow, ipcMain, safeStorage, dialog } = require('electron')
 const path = require('path');
 const fs = require('fs').promises;
 const fssync = require('fs');
-const Anthropic = require('@anthropic-ai/sdk').default;
+const OpenAI = require('openai');
 
 const USER_DATA = app.getPath('userData');
 const SETTINGS_PATH = path.join(USER_DATA, 'settings.json');
@@ -83,11 +83,27 @@ async function buildSystemForModule(moduleName, meta) {
   return parts.join('\n\n');
 }
 
+const KIT_BASE_URL = 'https://ki-toolbox.scc.kit.edu/api/v1';
+const KIT_DEFAULT_MODEL = 'azure.gpt-4.1';
+
 const SYSTEM_BASE = (moduleName) => `Du bist ein erfahrener Tutor fuer das Modul "${moduleName}" an der Universitaet Karlsruhe (KIT), Studiengang Elektrotechnik und Informationstechnik.
 
 Antworte praezise, in Deutsch. Bei mathematischen Inhalten nutze LaTeX: Inline mit $...$ und Block mit $$...$$. Wenn der Studierende eine Aufgabe stellt, fuehre den Loesungsweg Schritt fuer Schritt vor. Beziehe dich aktiv auf die hochgeladenen Modul-Materialien wenn relevant, zitiere mit der Datei-Bezeichnung.
 
 Bei unklaren Fragen frage gezielt nach. Vermeide unnoetige Floskeln.`;
+
+async function migrateFromOpencode() {
+  const s = await getSettings();
+  if (s.apiKey) return;
+  try {
+    const cfgPath = path.join(process.env.USERPROFILE || process.env.HOME, '.config', 'opencode', 'opencode.json');
+    const cfg = JSON.parse(await fs.readFile(cfgPath, 'utf8'));
+    const kit = cfg?.provider?.kit?.options;
+    if (kit?.apiKey) {
+      await saveSettings({ apiKey: kit.apiKey, baseURL: kit.baseURL || KIT_BASE_URL, model: KIT_DEFAULT_MODEL });
+    }
+  } catch (_) {}
+}
 
 async function streamChat(event, { moduleId, moduleName, userMessage, userImageDataUrl, quizMode }) {
   const settings = await getSettings();
@@ -98,35 +114,26 @@ async function streamChat(event, { moduleId, moduleName, userMessage, userImageD
   const { meta, history } = await getModuleState(moduleId);
   const materialsText = await buildSystemForModule(moduleName, meta);
 
-  const system = [
-    { type: 'text', text: SYSTEM_BASE(moduleName) },
-  ];
-  if (materialsText.trim().length > 0) {
-    system.push({
-      type: 'text',
-      text: `Modul-Materialien (durchsuchbar):\n\n${materialsText}`,
-      cache_control: { type: 'ephemeral' },
-    });
+  let systemText = SYSTEM_BASE(moduleName);
+  if (materialsText.trim()) {
+    systemText += `\n\nModul-Materialien (durchsuchbar):\n\n${materialsText}`;
   }
 
-  const messages = history.map(h => ({ role: h.role, content: h.content }));
+  // Build OpenAI-format messages
+  const messages = [{ role: 'system', content: systemText }];
+  for (const h of history) {
+    const text = typeof h.content === 'string'
+      ? h.content
+      : (h.content || []).filter(b => b.type === 'text').map(b => b.text).join('\n');
+    messages.push({ role: h.role, content: text });
+  }
 
   let newUserContent;
   if (userImageDataUrl) {
-    const m = userImageDataUrl.match(/^data:(image\/(?:png|jpeg|jpg|webp|gif));base64,(.+)$/);
-    const blocks = [];
-    if (m) {
-      blocks.push({
-        type: 'image',
-        source: { type: 'base64', media_type: m[1], data: m[2] },
-      });
-    }
-    if (userMessage && userMessage.trim()) {
-      blocks.push({ type: 'text', text: userMessage });
-    } else {
-      blocks.push({ type: 'text', text: 'Bitte analysiere dieses Bild im Kontext des Moduls.' });
-    }
-    newUserContent = blocks;
+    newUserContent = [
+      { type: 'image_url', image_url: { url: userImageDataUrl } },
+      { type: 'text', text: userMessage && userMessage.trim() ? userMessage : 'Bitte analysiere dieses Bild im Kontext des Moduls.' },
+    ];
   } else if (quizMode) {
     newUserContent = `Generiere ${quizMode.count || 5} Pruefungs-Fragen aus den hochgeladenen Modul-Materialien. Fokus: ${quizMode.focus || 'gemischt'}. Format pro Frage: nummeriert, kurzer Aufgabentext, dann auf neue Zeile "Hinweis: [Tipp wo im Material]" — aber zeige NICHT die Loesung. Am Ende: "Antworte mir mit deiner Loesung zu Frage X und ich pruefe."`;
   } else {
@@ -134,33 +141,35 @@ async function streamChat(event, { moduleId, moduleName, userMessage, userImageD
   }
   messages.push({ role: 'user', content: newUserContent });
 
-  const client = new Anthropic({ apiKey: settings.apiKey });
+  const client = new OpenAI({
+    apiKey: settings.apiKey,
+    baseURL: settings.baseURL || KIT_BASE_URL,
+  });
 
   let fullText = '';
-  let usage = null;
   try {
-    const stream = client.messages.stream({
-      model: 'claude-sonnet-4-6',
+    const stream = await client.chat.completions.create({
+      model: settings.model || KIT_DEFAULT_MODEL,
       max_tokens: 8000,
-      system,
       messages,
+      stream: true,
     });
 
-    stream.on('text', (delta) => {
-      fullText += delta;
-      event.sender.send('chat:delta', delta);
-    });
+    for await (const chunk of stream) {
+      const delta = chunk.choices[0]?.delta?.content || '';
+      if (delta) {
+        fullText += delta;
+        event.sender.send('chat:delta', delta);
+      }
+    }
 
-    const finalMsg = await stream.finalMessage();
-    usage = finalMsg.usage;
-
-    // Persist history
-    const userEntry = { role: 'user', content: newUserContent, ts: Date.now() };
+    // Persist history (store text only for portability)
+    const userEntry = { role: 'user', content: typeof newUserContent === 'string' ? newUserContent : (userMessage || '[Bild]'), ts: Date.now() };
     const assistantEntry = { role: 'assistant', content: fullText, ts: Date.now() };
     history.push(userEntry, assistantEntry);
     await writeJSON(path.join(moduleDir(moduleId), 'history.json'), history);
 
-    event.sender.send('chat:done', { usage });
+    event.sender.send('chat:done', { usage: null });
   } catch (err) {
     event.sender.send('chat:error', err && err.message ? err.message : String(err));
   }
@@ -186,6 +195,7 @@ function createWindow() {
 
 app.whenReady().then(async () => {
   await ensureDir(MODULES_DIR);
+  await migrateFromOpencode();
   createWindow();
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
@@ -198,12 +208,22 @@ app.on('window-all-closed', () => {
 
 ipcMain.handle('settings:get', async () => {
   const s = await getSettings();
-  return { hasKey: !!s.apiKey, model: s.model || 'claude-sonnet-4-6' };
+  return {
+    hasKey: !!s.apiKey,
+    model: s.model || KIT_DEFAULT_MODEL,
+    baseURL: s.baseURL || KIT_BASE_URL,
+  };
 });
 
-ipcMain.handle('settings:setKey', async (_e, apiKey) => {
+ipcMain.handle('settings:setKey', async (_e, payload) => {
   const s = await getSettings();
-  s.apiKey = apiKey;
+  if (typeof payload === 'string') {
+    s.apiKey = payload;
+  } else {
+    if (payload.apiKey) s.apiKey = payload.apiKey;
+    if (payload.baseURL) s.baseURL = payload.baseURL;
+    if (payload.model) s.model = payload.model;
+  }
   await saveSettings(s);
   return true;
 });
