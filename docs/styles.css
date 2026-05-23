@@ -322,6 +322,27 @@ button:disabled {
 }
 
 /* ============================================================
+   HOME — Download button (neon-pulse BLADE style)
+   ============================================================ */
+.download-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 18px;
+  padding: 12px 28px 12px 20px;
+  background: #ff4d2e;
+  color: #fff;
+  font-family: system-ui, sans-serif;
+  font-weight: 600;
+  font-size: 14px;
+  text-decoration: none;
+  letter-spacing: 0.01em;
+  clip-path: polygon(0 0, 100% 0, calc(100% - 12px) 100%, 0 100%);
+  transition: filter 0.15s ease;
+}
+.download-btn:hover { filter: brightness(1.12); }
+
+/* ============================================================
    HOME — TILES
    ============================================================ */
 .tiles {
